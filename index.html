@@ -3,114 +3,66 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-  <title>Örebro – Väder</title>
+  <title>Örebro – Väder + Dagens text</title>
   <style>
-    :root{
-      --bg:#0f1115; --fg:#e8eaed; --muted:#a7b0bc; --card:#151922; --accent:#5aa7ff;
-    }
+    :root{ --bg:#0f1115; --fg:#e8eaed; --muted:#a7b0bc; --card:#151922; --accent:#5aa7ff; }
     html,body{height:100%}
     body{
-      margin:0;
-      background:var(--bg);
-      color:var(--fg);
+      margin:0; background:var(--bg); color:var(--fg);
       font:600 20px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial;
       overflow:hidden;
     }
-    .wrap{
-      height:100vh;
-      width:100vw;
-      display:flex;
-      align-items:stretch;
-      justify-content:center;
+    .grid{
+      height:100vh; width:100vw;
+      display:grid;
+      grid-template-columns: 1.1fr 1.6fr;
+      gap:20px;
       padding:22px;
       box-sizing:border-box;
     }
     .card{
-      flex:1;
       background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
       border:1px solid rgba(255,255,255,.06);
       border-radius:26px;
       padding:26px;
       box-shadow:0 12px 34px rgba(0,0,0,.38);
-      display:flex;
-      flex-direction:column;
-      gap:18px;
       min-width:0;
     }
-    .top{
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .city{
-      font-size:30px;
-      font-weight:750;
-      letter-spacing:-0.3px;
-    }
-    .badge{
-      padding:7px 11px;
-      border-radius:999px;
-      background:#1b2230;
-      color:var(--muted);
-      font-size:14px;
-      font-weight:650;
-      white-space:nowrap;
-    }
-    .main{
-      display:flex;
-      align-items:center;
-      gap:18px;
-      flex-wrap:wrap;
-    }
-    .temp{
-      font-size:92px;
-      font-weight:800;
-      letter-spacing:-2.2px;
-      line-height:1;
-    }
-    .summary{
-      font-size:20px;
-      font-weight:650;
-      color:var(--fg);
-    }
-    .muted{color:var(--muted)}
-    .stats{
-      margin-top:4px;
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:12px;
-    }
-    .stat{
+    /* Weather card */
+    .weather{ display:flex; flex-direction:column; height:100%; gap:18px; }
+    .top{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .city{ font-size:30px; font-weight:800; letter-spacing:-0.3px; }
+    .badge{ padding:7px 11px; border-radius:999px; background:#1b2230; color:var(--muted); font-size:14px; font-weight:700; white-space:nowrap; }
+    .main{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+    .temp{ font-size:92px; font-weight:850; letter-spacing:-2.2px; line-height:1; }
+    .summary{ font-size:20px; font-weight:700; }
+    .muted{ color:var(--muted); }
+    .stats{ margin-top:4px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .stat{ background:var(--card); border-radius:16px; padding:14px; text-align:center; border:1px solid rgba(255,255,255,.06); }
+    .stat strong{ display:block; margin-top:6px; font-size:20px; letter-spacing:-0.3px; }
+    .footer{ margin-top:auto; font-size:14px; color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    a{ color:var(--accent); text-decoration:none; }
+
+    /* Daily text */
+    .dt{ display:flex; flex-direction:column; height:100%; gap:10px; }
+    .dtStatusRow{ min-height:22px; }
+    .dt-box{
+      flex:1;
       background:var(--card);
       border-radius:16px;
-      padding:14px;
-      text-align:center;
-      border:1px solid rgba(255,255,255,.06);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+      padding:18px;
+      margin:5px;             /* nice inset from the right card */
+      overflow:auto;          /* keep on, otherwise long days clip */
+      -webkit-overflow-scrolling: touch;
     }
-    .stat strong{
-      display:block;
-      margin-top:6px;
-      font-size:20px;
-      letter-spacing:-0.3px;
-    }
-    .footer{
-      margin-top:auto;
-      font-size:14px;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    a{color:var(--accent); text-decoration:none}
+    .dt-box p{ margin:0 0 0.8em; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="card">
+  <div class="grid">
+    <!-- WEATHER -->
+    <section class="card weather">
       <div class="top">
         <div class="city">Örebro</div>
         <div class="badge" id="time">—</div>
@@ -135,15 +87,31 @@
         <a href="https://opendata.smhi.se/metfcst/" target="_blank" rel="noreferrer">Källa</a>
       </div>
     </section>
+
+    <!-- DAILY TEXT -->
+    <section class="card dt">
+      <div class="dtStatusRow">
+        <span id="dtStatus" class="muted">Laddar dagens text…</span>
+      </div>
+      <div id="dtContent" class="dt-box" aria-live="polite"></div>
+    </section>
   </div>
 
 <script>
 /* ========= CONFIG ========= */
 const LAT = 59.2741, LON = 15.2066;        // Örebro (approx)
-const REFRESH_MS = 5 * 60 * 1000;
+const WEATHER_REFRESH_MS = 5 * 60 * 1000;
+
+const OPF_PATH  = 'es25_Z/OEBPS/content.opf';
+const OEBPS_DIR = 'es25_Z/OEBPS/';
+const START_ID  = 'chapter5';              // your plan start
+
+// Daily schedule
+const DAILY_TEXT_HOUR = 0,  DAILY_TEXT_MIN = 10; // refresh 00:10
+const RELOAD_HOUR     = 3,  RELOAD_MIN     = 0;  // hard reload 03:00
 /* ========================= */
 
-// SMHI Wsymb2 (1–27) -> SV beskrivning
+// SMHI Wsymb2 (1–27) -> SV
 const W = {
   1:"Klart", 2:"Nästan klart", 3:"Växlande molnighet", 4:"Halvklart", 5:"Molnigt", 6:"Mulet", 7:"Dimma",
   8:"Lätta regnskurar", 9:"Måttliga regnskurar", 10:"Kraftiga regnskurar", 11:"Åskskurar",
@@ -157,9 +125,7 @@ const W = {
 const el = id => document.getElementById(id);
 
 function fmtClock(){
-  return new Date().toLocaleString("sv-SE", {
-    weekday:"long", hour:"2-digit", minute:"2-digit"
-  });
+  return new Date().toLocaleString("sv-SE", { weekday:"long", hour:"2-digit", minute:"2-digit" });
 }
 
 function pickParam(params, name){
@@ -167,26 +133,23 @@ function pickParam(params, name){
   return p && p.values ? p.values[0] : null;
 }
 
+/* ---------- WEATHER (SMHI) ---------- */
 async function loadSmhi(){
-  const url =
-    `https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${LON}/lat/${LAT}/data.json`;
-
+  const url = `https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${LON}/lat/${LAT}/data.json`;
   const r = await fetch(url, { cache: "no-store" });
   if(!r.ok) throw new Error("SMHI HTTP " + r.status);
 
   const j = await r.json();
   const now = new Date();
-
-  // first timestep >= now
   const ts = j.timeSeries.find(t => new Date(t.validTime) >= now) || j.timeSeries[0];
 
-  const t   = pickParam(ts.parameters, "t");      // °C
-  const ws  = pickParam(ts.parameters, "ws");     // m/s
-  const pmean = pickParam(ts.parameters, "pmean");// mm/h (mean precip)
-  const sym = pickParam(ts.parameters, "Wsymb2"); // 1..27
+  const t    = pickParam(ts.parameters, "t");        // °C
+  const ws   = pickParam(ts.parameters, "ws");       // m/s
+  const pmean= pickParam(ts.parameters, "pmean");    // mm/h
+  const sym  = pickParam(ts.parameters, "Wsymb2");   // 1..27
 
   el("temp").textContent = Math.round(t) + "°";
-  el("feels").textContent = Math.round(t) + "°";  // SMHI doesn't give apparent temp here
+  el("feels").textContent = Math.round(t) + "°";     // SMHI lacks apparent temp here
   el("wind").textContent = (Math.round(ws*10)/10) + " m/s";
   el("precip").textContent = (pmean ?? 0) + " mm/h";
   el("summary").textContent = W[sym] || "—";
@@ -195,23 +158,117 @@ async function loadSmhi(){
   el("valid").textContent = `Gäller kl ${vt}`;
 }
 
-async function refreshAll(){
+/* ---------- DAILY TEXT (EPUB) ---------- */
+function dayOfYearLocal(){
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  return Math.floor((now - start) / 86400000);
+}
+
+function stripExtras(doc){
+  // Remove the reference block you identified in your EPUB output
+  doc.querySelectorAll('div.groupExt').forEach(n => n.remove());
+  // Sometimes captions are just reference noise
+  doc.querySelectorAll('figcaption').forEach(n => n.remove());
+  return doc;
+}
+
+async function loadDailyText(){
+  const status = el("dtStatus");
+  const out = el("dtContent");
+
   try{
-    await loadSmhi();
+    status.textContent = "Laddar dagens text…";
+
+    const resp = await fetch(OPF_PATH, { cache: "no-store" });
+    if(!resp.ok) throw new Error("OPF saknas: " + resp.status);
+    const xmlText = await resp.text();
+
+    const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+    if (xml.querySelector("parsererror")) throw new Error("XML parserfel i OPF.");
+
+    const items = Array.from(xml.querySelectorAll('item[id^="chapter"]'))
+      .map(n => ({
+        id: n.getAttribute("id"),
+        n: parseInt(n.getAttribute("id").replace("chapter",""), 10),
+        href: n.getAttribute("href")
+      }))
+      .filter(x => Number.isFinite(x.n))
+      .sort((a,b) => a.n - b.n);
+
+    if(!items.length) throw new Error("Inga chapter-items hittades i OPF.");
+
+    const startIndex = Math.max(0, items.findIndex(x => x.id === START_ID));
+    const doy = dayOfYearLocal();
+    const idx = (startIndex + (doy - 1)) % items.length;
+    const chosen = items[idx];
+
+    const chapterUrl = OEBPS_DIR + chosen.href;
+    const ch = await fetch(chapterUrl, { cache: "no-store" });
+    if(!ch.ok) throw new Error("Kunde inte läsa kapitel: " + ch.status);
+    const chapterHtml = await ch.text();
+
+    const doc = new DOMParser().parseFromString(chapterHtml, "text/html");
+    stripExtras(doc);
+
+    const container =
+      doc.querySelector("main") ||
+      doc.querySelector("article") ||
+      doc.querySelector("section") ||
+      doc.body;
+
+    out.innerHTML = container ? container.innerHTML : doc.body.innerHTML;
+    status.textContent = "";
   }catch(e){
     console.error(e);
-    el("summary").textContent = "Kunde inte hämta väder.";
-    el("valid").textContent = "—";
+    el("dtStatus").textContent = "Kunde inte läsa dagens text.";
+    el("dtContent").textContent = "";
   }
 }
 
-function tickClock(){ el("time").textContent = fmtClock(); }
+/* ---------- SCHEDULING ---------- */
+function msUntilNextLocal(hour, minute=0){
+  const now = new Date();
+  const next = new Date();
+  next.setHours(hour, minute, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  // safety floor: never schedule too tight
+  return Math.max(next - now, 30 * 1000);
+}
 
+let dailyTextTimer = null;
+let reloadTimer = null;
+
+function scheduleDailyText(){
+  if (dailyTextTimer) clearTimeout(dailyTextTimer);
+  dailyTextTimer = setTimeout(() => {
+    loadDailyText();
+    scheduleDailyText();
+  }, msUntilNextLocal(DAILY_TEXT_HOUR, DAILY_TEXT_MIN));
+}
+
+function scheduleNightlyReload(){
+  if (reloadTimer) clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => location.reload(), msUntilNextLocal(RELOAD_HOUR, RELOAD_MIN));
+}
+
+/* ---------- START ---------- */
+function tickClock(){ el("time").textContent = fmtClock(); }
 tickClock();
 setInterval(tickClock, 30 * 1000);
 
-refreshAll();
-setInterval(refreshAll, REFRESH_MS);
+(async () => {
+  // Initial loads
+  try { await loadSmhi(); } catch(e){ console.error(e); el("summary").textContent = "Kunde inte hämta väder."; }
+  loadDailyText();
+
+  // Refresh loops
+  setInterval(() => loadSmhi().catch(e => console.error(e)), WEATHER_REFRESH_MS);
+
+  // Daily schedules
+  scheduleDailyText();
+  scheduleNightlyReload();
+})();
 </script>
 </body>
 </html>
