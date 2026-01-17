@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>Örebro – Väder</title>
+  <style>
+    :root{
+      --bg:#0f1115; --fg:#e8eaed; --muted:#a7b0bc; --card:#151922; --accent:#5aa7ff;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font:600 20px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial;
+      overflow:hidden;
+    }
+    .wrap{
+      height:100vh;
+      width:100vw;
+      display:flex;
+      align-items:stretch;
+      justify-content:center;
+      padding:22px;
+      box-sizing:border-box;
+    }
+    .card{
+      flex:1;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:26px;
+      padding:26px;
+      box-shadow:0 12px 34px rgba(0,0,0,.38);
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+      min-width:0;
+    }
+    .top{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .city{
+      font-size:30px;
+      font-weight:750;
+      letter-spacing:-0.3px;
+    }
+    .badge{
+      padding:7px 11px;
+      border-radius:999px;
+      background:#1b2230;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .main{
+      display:flex;
+      align-items:center;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+    .temp{
+      font-size:92px;
+      font-weight:800;
+      letter-spacing:-2.2px;
+      line-height:1;
+    }
+    .summary{
+      font-size:20px;
+      font-weight:650;
+      color:var(--fg);
+    }
+    .muted{color:var(--muted)}
+    .stats{
+      margin-top:4px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+    }
+    .stat{
+      background:var(--card);
+      border-radius:16px;
+      padding:14px;
+      text-align:center;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .stat strong{
+      display:block;
+      margin-top:6px;
+      font-size:20px;
+      letter-spacing:-0.3px;
+    }
+    .footer{
+      margin-top:auto;
+      font-size:14px;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    a{color:var(--accent); text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <div class="top">
+        <div class="city">Örebro</div>
+        <div class="badge" id="time">—</div>
+      </div>
+
+      <div class="main">
+        <div class="temp" id="temp">–°</div>
+        <div>
+          <div class="summary" id="summary">Hämtar från SMHI…</div>
+          <div class="muted" id="valid">—</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">Känns som<br><strong id="feels">–°</strong></div>
+        <div class="stat">Vind<br><strong id="wind">– m/s</strong></div>
+        <div class="stat">Nederbörd<br><strong id="precip">– mm/h</strong></div>
+      </div>
+
+      <div class="footer">
+        <span>SMHI prognos (PMP3G)</span>
+        <a href="https://opendata.smhi.se/metfcst/" target="_blank" rel="noreferrer">Källa</a>
+      </div>
+    </section>
+  </div>
+
+<script>
+/* ========= CONFIG ========= */
+const LAT = 59.2741, LON = 15.2066;        // Örebro (approx)
+const REFRESH_MS = 5 * 60 * 1000;
+/* ========================= */
+
+// SMHI Wsymb2 (1–27) -> SV beskrivning
+const W = {
+  1:"Klart", 2:"Nästan klart", 3:"Växlande molnighet", 4:"Halvklart", 5:"Molnigt", 6:"Mulet", 7:"Dimma",
+  8:"Lätta regnskurar", 9:"Måttliga regnskurar", 10:"Kraftiga regnskurar", 11:"Åskskurar",
+  12:"Lätta skurar av snöblandat regn", 13:"Måttliga skurar av snöblandat regn", 14:"Kraftiga skurar av snöblandat regn",
+  15:"Lätta snöbyar", 16:"Måttliga snöbyar", 17:"Kraftiga snöbyar",
+  18:"Lätt regn", 19:"Regn", 20:"Kraftigt regn", 21:"Åska",
+  22:"Lätt snöblandat regn", 23:"Snöblandat regn", 24:"Kraftigt snöblandat regn",
+  25:"Lätt snöfall", 26:"Snöfall", 27:"Kraftigt snöfall"
+};
+
+const el = id => document.getElementById(id);
+
+function fmtClock(){
+  return new Date().toLocaleString("sv-SE", {
+    weekday:"long", hour:"2-digit", minute:"2-digit"
+  });
+}
+
+function pickParam(params, name){
+  const p = params.find(p => p.name === name);
+  return p && p.values ? p.values[0] : null;
+}
+
+async function loadSmhi(){
+  const url =
+    `https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${LON}/lat/${LAT}/data.json`;
+
+  const r = await fetch(url, { cache: "no-store" });
+  if(!r.ok) throw new Error("SMHI HTTP " + r.status);
+
+  const j = await r.json();
+  const now = new Date();
+
+  // first timestep >= now
+  const ts = j.timeSeries.find(t => new Date(t.validTime) >= now) || j.timeSeries[0];
+
+  const t   = pickParam(ts.parameters, "t");      // °C
+  const ws  = pickParam(ts.parameters, "ws");     // m/s
+  const pmean = pickParam(ts.parameters, "pmean");// mm/h (mean precip)
+  const sym = pickParam(ts.parameters, "Wsymb2"); // 1..27
+
+  el("temp").textContent = Math.round(t) + "°";
+  el("feels").textContent = Math.round(t) + "°";  // SMHI doesn't give apparent temp here
+  el("wind").textContent = (Math.round(ws*10)/10) + " m/s";
+  el("precip").textContent = (pmean ?? 0) + " mm/h";
+  el("summary").textContent = W[sym] || "—";
+
+  const vt = new Date(ts.validTime).toLocaleString("sv-SE", { hour:"2-digit", minute:"2-digit" });
+  el("valid").textContent = `Gäller kl ${vt}`;
+}
+
+async function refreshAll(){
+  try{
+    await loadSmhi();
+  }catch(e){
+    console.error(e);
+    el("summary").textContent = "Kunde inte hämta väder.";
+    el("valid").textContent = "—";
+  }
+}
+
+function tickClock(){ el("time").textContent = fmtClock(); }
+
+tickClock();
+setInterval(tickClock, 30 * 1000);
+
+refreshAll();
+setInterval(refreshAll, REFRESH_MS);
+</script>
+</body>
+</html>
